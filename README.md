@@ -30,6 +30,18 @@ If you want to install fping from source, proceed as follows:
 3. Make fping either setuid, or, if under Linux:
    `sudo setcap cap_net_raw+ep fping`
 
+### For Windows
+0. use Mysys2 Shell
+1. Run `pacman -S automake`
+2. Run `pacman -S autoconf`
+3. Run `./autogen.sh`
+   (only if you got the source from Github).
+4. Run `./configure` with the correct arguments.
+   (see: `./configure --help`)
+5. Run `make`
+6. `fping.exe` wouuld be in `src` dir
+7. copy `msys-2.0.dll` from your Mysys2 installation dir `\usr\bin` to the same path with `fping.exe` 
+
 If you can't run fping as root or can't use the cap_net_raw capability, you can
 also run fping in unprivileged mode. This works on MacOS and also on Linux,
 provided that your GID is included in the range defined in
