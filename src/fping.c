@@ -76,7 +76,7 @@ extern "C" {
 #include <netinet/in_systm.h>
 
 #include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
+#include "ip_icmp.h"
 
 #include <arpa/inet.h>
 #include <ctype.h>
