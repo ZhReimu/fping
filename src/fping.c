@@ -60,8 +60,6 @@ extern "C" {
 #include <stddef.h>
 #include <string.h>
 
-#include <time.h>
-
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -122,8 +120,11 @@ extern int h_errno;
 #define CLOCKID CLOCK_REALTIME
 #endif
 
+/* CLOCK_MONTONIC starts under macOS, OpenBSD and FreeBSD with undefined positive point and can not be use
+ * see github PR #217
+ */
 #if !defined(CLOCKID)
-#if defined(CLOCK_MONOTONIC)
+#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__FreeBSD__)
 #define CLOCKID CLOCK_MONOTONIC
 #else
 #define CLOCKID CLOCK_REALTIME
@@ -1699,9 +1700,9 @@ void print_netdata(void)
         printf("BEGIN fping.%s_latency\n", h->name);
         if (h->num_recv_i) {
             avg = h->total_time_i / h->num_recv_i;
-            printf("SET min = %ld\n", h->min_reply_i);
-            printf("SET avg = %ld\n", avg);
-            printf("SET max = %ld\n", h->max_reply_i);
+            printf("SET min = %" PRId64 "\n", h->min_reply_i);
+            printf("SET avg = %" PRId64 "\n", avg);
+            printf("SET max = %" PRId64 "\n", h->max_reply_i);
         }
         printf("END\n");
 
@@ -2102,7 +2103,7 @@ int decode_icmp_ipv4(
         /* too short */
         if (verbose_flag) {
             char buf[INET6_ADDRSTRLEN];
-            getnameinfo((struct sockaddr*)&response_addr, sizeof(response_addr), buf, INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
+            getnameinfo( response_addr, sizeof( struct sockaddr_in ), buf, INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
             printf("received packet too short for ICMP (%d bytes from %s)\n", (int)reply_buf_len, buf);
         }
         return -1;
@@ -2135,7 +2136,7 @@ int decode_icmp_ipv4(
             return -1;
         }
 
-        getnameinfo(response_addr, response_addr_len, addr_ascii, INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
+        getnameinfo(response_addr, sizeof( struct sockaddr_in ), addr_ascii, INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
 
         switch (icp->icmp_type) {
         case ICMP_UNREACH:
@@ -2928,14 +2929,15 @@ void usage(int is_error)
     fprintf(out, "   -a, --alive        show targets that are alive\n");
     fprintf(out, "   -A, --addr         show targets by address\n");
     fprintf(out, "   -C, --vcount=N     same as -c, report results in verbose format\n");
+    fprintf(out, "   -d, --rdns         show targets by name (force reverse-DNS lookup)\n");
     fprintf(out, "   -D, --timestamp    print timestamp before each output line\n");
     fprintf(out, "   -e, --elapsed      show elapsed time on return packets\n");
     fprintf(out, "   -i, --interval=MSEC  interval between sending ping packets (default: %.0f ms)\n", interval / 1e6);
-    fprintf(out, "   -n, --name         show targets by name (-d is equivalent)\n");
+    fprintf(out, "   -n, --name         show targets by name (reverse-DNS lookup for target IPs)\n");
     fprintf(out, "   -N, --netdata      output compatible for netdata (-l -Q are required)\n");
     fprintf(out, "   -o, --outage       show the accumulated outage time (lost packets * packet interval)\n");
     fprintf(out, "   -q, --quiet        quiet (don't show per-target/per-ping results)\n");
-    fprintf(out, "   -Q, --squiet=SECS  same as -q, but show summary every n seconds\n");
+    fprintf(out, "   -Q, --squiet=SECS  same as -q, but add interval summary every SECS seconds\n");
     fprintf(out, "   -s, --stats        print final stats\n");
     fprintf(out, "   -u, --unreach      show targets that are unreachable\n");
     fprintf(out, "   -v, --version      show version\n");
