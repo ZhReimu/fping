@@ -36,7 +36,7 @@ If you want to install fping from source, proceed as follows:
 2. Run `pacman -S autoconf`
 3. Run `./autogen.sh`
    (only if you got the source from Github).
-4. Run `./configure` with the correct arguments.
+4. Run `./configure` with the correct arguments, Remember to add `CFLAGS=-I.`
    (see: `./configure --help`)
 5. Run `make`
 6. `fping.exe` wouuld be in `src` dir
