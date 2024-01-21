@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
-use Test::Command tests => 24;
+use Test::Command tests => 51;
+use Test::More;
 use File::Temp;
 
 #  -f file    read list of targets from a file ( - means stdin) (only if no -g specified)
@@ -37,12 +38,51 @@ $cmd->stdout_is_eq("127.0.0.1 is alive\n127.0.0.2 is alive\n");
 $cmd->stderr_is_eq("");
 }
 
+# fping -g (error: no argument)
+{
+my $cmd = Test::Command->new(cmd => "fping -g");
+$cmd->exit_is_num(1);
+$cmd->stdout_is_eq("");
+$cmd->stderr_like(qr{^Usage: fping \[options\] \[targets\.\.\.\]});
+}
+
+# fping -g (error: single argument, but not in cidr format)
+{
+my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.1");
+$cmd->exit_is_num(1);
+$cmd->stdout_is_eq("");
+$cmd->stderr_like(qr{^Usage: fping \[options\] \[targets\.\.\.\]});
+}
+# fping -g (error: too many arguments)
+{
+my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.1 127.0.0.2 127.0.0.3");
+$cmd->exit_is_num(1);
+$cmd->stdout_is_eq("");
+$cmd->stderr_like(qr{^Usage: fping \[options\] \[targets\.\.\.\]});
+}
+
 # fping -g (range)
 {
 my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.1 127.0.0.5");
 $cmd->exit_is_num(0);
 $cmd->stdout_is_eq("127.0.0.1 is alive\n127.0.0.2 is alive\n127.0.0.3 is alive\n127.0.0.4 is alive\n127.0.0.5 is alive\n");
 $cmd->stderr_is_eq("");
+}
+
+# fping -g (empty range)
+{
+my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.2 127.0.0.1");
+$cmd->exit_is_num(1);
+$cmd->stdout_is_eq("");
+$cmd->stderr_is_eq("");
+}
+
+# fping -g (too large range)
+{
+my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.1 127.255.255.254");
+$cmd->exit_is_num(1);
+$cmd->stdout_is_eq("");
+$cmd->stderr_is_eq("fping: -g parameter generates too many addresses\n");
 }
 
 # fping -g (cidr)
@@ -53,11 +93,19 @@ $cmd->stdout_is_eq("127.0.0.1 is alive\n127.0.0.2 is alive\n");
 $cmd->stderr_is_eq("");
 }
 
-# fping -g (cidr - long prefixes)
+# fping -g (cidr - long prefixes: point-to-point)
 {
 my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.2/31");
 $cmd->exit_is_num(0);
 $cmd->stdout_is_eq("127.0.0.2 is alive\n127.0.0.3 is alive\n");
+$cmd->stderr_is_eq("");
+}
+
+# fping -g (cidr - long prefixes: host)
+{
+my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.2/32");
+$cmd->exit_is_num(0);
+$cmd->stdout_is_eq("127.0.0.2 is alive\n");
 $cmd->stderr_is_eq("");
 }
 
@@ -67,6 +115,36 @@ my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.2/33");
 $cmd->exit_is_num(1);
 $cmd->stdout_is_eq("");
 $cmd->stderr_is_eq("fping: netmask must be between 1 and 32 (is: 33)\n");
+}
+
+# fping -g (cidr - too short prefixes)
+{
+my $cmd = Test::Command->new(cmd => "fping -g 127.0.0.2/0");
+$cmd->exit_is_num(1);
+$cmd->stdout_is_eq("");
+$cmd->stderr_is_eq("fping: netmask must be between 1 and 32 (is: 0)\n");
+}
+
+# fping -g (range - no IPv6 generator)
+SKIP: {
+    if($ENV{SKIP_IPV6}) {
+        skip 'Skip IPv6 tests', 3;
+    }
+    my $cmd = Test::Command->new(cmd => "fping -6 -g ::1 ::1");
+    $cmd->exit_is_num(1);
+    $cmd->stdout_is_eq("");
+    $cmd->stderr_is_eq("fping: -g works only with IPv4 addresses\n");
+}
+
+# fping -g (CIDR - no IPv6 generator)
+SKIP: {
+    if($ENV{SKIP_IPV6}) {
+        skip 'Skip IPv6 tests', 3;
+    }
+    my $cmd = Test::Command->new(cmd => "fping -6 -g ::1/128");
+    $cmd->exit_is_num(1);
+    $cmd->stdout_is_eq("");
+    $cmd->stderr_is_eq("fping: -g works only with IPv4 addresses\n");
 }
 
 # fping -H
